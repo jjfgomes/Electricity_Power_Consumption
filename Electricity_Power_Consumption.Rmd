@@ -1,0 +1,135 @@
+---
+title: "Electricity_Power_Consumption"
+author: "Joao_Gomes"
+date: "06/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Importing the Data
+
+```{r}
+library(data.table)
+library(here)
+epc <- fread("API_EG.USE.ELEC.KH.PC_DS2_en_csv_v2_511946.csv", skip = 4, h=T, check.names = T)
+str(epc)
+epc[, .N, by = .(V65)]
+epc[, c("Indicator.Name","Indicator.Code","V65"):=NULL]
+setnames(epc, c("Country.Name","Country.Code"), c("Country", "Code"))
+head(names(epc)); tail(names(epc))
+```
+
+Transpor os dados
+
+```{r}
+PC <- melt(epc, 
+           id.vars = c("Country","Code"),
+           measure = patterns("^X"),
+           variable.name = "YearC",
+           value.name = "PCE",
+           na.rm = T)
+PC
+PC[, `:=` (Year=as.numeric(gsub("[^[:digit:].]", "", YearC)))][,YearC:=NULL]
+
+setcolorder(PC,c("Country","Code", "Year", "PCE"))
+PC
+```
+
+
+# Análise Exploratória
+
+Portugal
+```{r Portugal}
+PC[Country %in% "Portugal"][order(Year)]
+#GGPLOT
+library(ggplot2)
+library(magrittr)
+#Time trends for Portugal
+PC[Country%in%c("Portugal")]
+#unique(PC$Country)
+PC[Country %in% "Portugal"] %>%
+  ggplot(aes(Year, PCE)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous() +
+  scale_x_continuous(breaks=seq(1960, 2015, by=5)) +
+  ylab("% Power Consumption") +
+  ggtitle("Power Consumption in Prtugal")
+```
+
+Portugal vs EU
+
+```{r Portugal and EU}
+#GGPLOT
+#Time trends for Portugal and EU
+#unique(PC$Country)
+PC[Country %in% c("Portugal","European Union")] %>%
+  ggplot(aes(Year,PCE, colour=Country)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous() +
+  scale_x_continuous(breaks=seq(1960, 2015, by=5)) +
+  ylab("% Power Consumption") +
+  ggtitle("Power Consumption in Europe")
+```
+
+#Novos Exercícios
+
+#Rank countries by the lowest and highest consumption
+
+```{r}
+PC[order(PCE)]
+PC[Country %in% "Sudan"]
+#Remove Sudan
+PC <-  PC[Country!= "Sudan"]
+```
+
+#Juntar o Continente
+
+```{r Juntar o Continente}
+#Merging Continent
+#installing "countrycode"
+library(countrycode)
+cl <- as.data.table(codelist)[,.(continent,wb)]
+setnames(cl, c("continent","wb"),c("Continent","Code"))
+cl
+
+cPC <- cl[PC, on="Code"]
+```
+
+```{r JDiff to A2000 e sort}
+A2000 <- cPC[Year==2000,c("Country","PCE")]
+
+setnames(A2000, "PCE","X2000")
+DiffPC <- merge(cPC,A2000, by="Country")
+
+#Decline in percentage
+DiffPC[!is.na(Continent), PCdiff := round(100*(PCE -X2000)/X2000,0)]
+DiffPC[,X2000:=NULL]
+DiffPC[order(Country,PCdiff)][Country%in%"Portugal"]
+```
+#Compare Portugal's Consumption to others European Union countrys
+```{r}
+library(gghighlight)
+DiffPC[Continent%in%"Europe"] %>%
+ggplot(aes(Year, PCE, group=Country)) +
+geom_line() +
+gghighlight(Country=="Portugal",
+use_direct_label = FALSE) +
+scale_y_log10() +
+ggtitle("PC Portugal in Europe") +
+ylab("PC")
+```
+
+```{r}
+DiffPC[Country %in% c("Portugal", "Sweden", "Spain",
+"Hungary", "Romania", "Finland", "Germany")] [Year %in% seq(1985,2015, 1)] %>%
+ggplot(aes(Year, PCdiff, group=Country, colour=Country)) +
+geom_line()  +
+ggtitle("PC Portugal in Europe") +
+  scale_x_continuous(breaks = seq(1985,2015, by =5)) +
+ylab("PC")
+```
