@@ -2,7 +2,9 @@
 title: "Electricity_Power_Consumption"
 author: "Joao_Gomes"
 date: "06/12/2019"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -16,7 +18,9 @@ library(data.table)
 library(here)
 epc <- fread("API_EG.USE.ELEC.KH.PC_DS2_en_csv_v2_511946.csv", skip = 4, h=T, check.names = T)
 str(epc)
+head(epc)
 epc[, .N, by = .(V65)]
+epc[, .N, by = .(Indicator.Name)]
 epc[, c("Indicator.Name","Indicator.Code","V65"):=NULL]
 setnames(epc, c("Country.Name","Country.Code"), c("Country", "Code"))
 head(names(epc)); tail(names(epc))
@@ -98,6 +102,7 @@ setnames(cl, c("continent","wb"),c("Continent","Code"))
 cl
 
 cPC <- cl[PC, on="Code"]
+head(cPC)
 ```
 
 ```{r JDiff to A2000 e sort}
@@ -109,6 +114,7 @@ DiffPC <- merge(cPC,A2000, by="Country")
 #Decline in percentage
 DiffPC[!is.na(Continent), PCdiff := round(100*(PCE -X2000)/X2000,0)]
 DiffPC[,X2000:=NULL]
+DiffPC[Country%in%c("Portugal","Sweden")][order(Country,Year)]
 DiffPC[order(Country,PCdiff)][Country%in%"Portugal"]
 ```
 #Compare Portugal's Consumption to others European Union countrys
@@ -126,10 +132,11 @@ ylab("PC")
 
 ```{r}
 DiffPC[Country %in% c("Portugal", "Sweden", "Spain",
-"Hungary", "Romania", "Finland", "Germany")] [Year %in% seq(1985,2015, 1)] %>%
+"Finland", "Germany")] [Year %in% seq(1985,2015, 1)] %>%
 ggplot(aes(Year, PCdiff, group=Country, colour=Country)) +
 geom_line()  +
 ggtitle("PC Portugal in Europe") +
   scale_x_continuous(breaks = seq(1985,2015, by =5)) +
-ylab("PC")
+  scale_y_continuous(limits=c(-50,50)) +
+  ylab("POWER CONSUMPTION")
 ```
